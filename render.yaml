@@ -1,0 +1,70 @@
+services:
+  # Backend API Service
+  - type: web
+    name: phish-detector-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: ML_SERVICE_URL
+        fromService:
+          type: web
+          name: phish-detector-ml
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+      - key: PHISHTANK_API_KEY
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+    healthCheckPath: /health
+
+  # ML Service
+  - type: web
+    name: phish-detector-ml
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd ml_service && pip install -r requirements.txt
+    startCommand: cd ml_service && gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: DEBUG
+        value: False
+      - key: MODEL_PATH
+        value: models/phishing_detector.pkl
+    healthCheckPath: /health
+
+  # Frontend Static Site
+  - type: web
+    name: phish-detector-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://phish-detector-backend.onrender.com/api/*
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: phish-detector-backend
+          envVarKey: RENDER_EXTERNAL_URL

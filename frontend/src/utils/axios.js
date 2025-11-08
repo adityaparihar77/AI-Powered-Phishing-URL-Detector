@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+// Get API URL from environment or use default
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 // Create axios instance with default config
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: API_URL ? `${API_URL}/api` : '/api',
   headers: {
     'Content-Type': 'application/json'
   }
